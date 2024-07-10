@@ -470,6 +470,14 @@ static int skcipher_recvmsg(struct kiocb *unused, struct socket *sock,
 			sgl = list_first_entry(&ctx->tsgl,
 						struct skcipher_sg_list, list);
 			sg = sgl->sg;
+#ifdef CONFIG_BOARD_ZTE
+			while (!sg->length)
+				sg++;
+
+			sgl = list_first_entry(&ctx->tsgl,
+					       struct skcipher_sg_list, list);
+			sg = sgl->sg;
+#endif
 
 			while (!sg->length)
 				sg++;

@@ -24,11 +24,19 @@
 
 static const struct crypto_type crypto_shash_type;
 
+#ifdef CONFIG_BOARD_ZTE
+int shash_no_setkey(struct crypto_shash *tfm, const u8 *key,
+		    unsigned int keylen)
+#else
 static int shash_no_setkey(struct crypto_shash *tfm, const u8 *key,
 			   unsigned int keylen)
+#endif
 {
 	return -ENOSYS;
 }
+#ifdef CONFIG_BOARD_ZTE
+EXPORT_SYMBOL_GPL(shash_no_setkey);
+#endif
 
 static int shash_setkey_unaligned(struct crypto_shash *tfm, const u8 *key,
 				  unsigned int keylen)
