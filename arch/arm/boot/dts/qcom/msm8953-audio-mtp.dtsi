@@ -26,9 +26,17 @@
 };
 
 &wsa881x_i2c_f {
+#ifdef CONFIG_BOARD_ZTE_SDM450
+	status = "disabled";
+#else
 	status = "okay";
+#endif
 };
 
 &wsa881x_i2c_45 {
+#ifdef CONFIG_BOARD_ZTE_SDM450
+	status = "disabled";
+#else
 	status = "okay";
+#endif
 };
