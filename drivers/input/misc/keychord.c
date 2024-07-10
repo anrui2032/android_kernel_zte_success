@@ -370,9 +370,17 @@ static ssize_t keychord_write(struct file *file, const char __user *buffer,
 
 	ret = input_register_handler(&kdev->input_handler);
 	if (ret) {
+#ifdef CONFIG_BOARD_ZTE
+		spin_lock_irqsave(&kdev->lock, flags);
+		kfree(kdev->keychords);
+#else
 		kfree(keychords);
+#endif
 		kdev->keychords = 0;
 		keychord_write_unlock(kdev);
+#ifdef CONFIG_BOARD_ZTE
+		spin_unlock_irqrestore(&kdev->lock, flags);
+#endif
 		return ret;
 	}
 	kdev->registered = 1;
