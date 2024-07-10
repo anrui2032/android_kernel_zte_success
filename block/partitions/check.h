@@ -15,6 +15,9 @@ struct parsed_partitions {
 		int flags;
 		bool has_info;
 		struct partition_meta_info info;
+#ifdef CONFIG_BOARD_ZTE
+		int readonly;
+#endif
 	} *parts;
 	int next;
 	int limit;
