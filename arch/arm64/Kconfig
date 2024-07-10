@@ -333,6 +333,7 @@ config ARCH_SDM450
 config ARCH_MSM8937
 	bool "Enable Support for Qualcomm Technologies Inc MSM8937"
 	depends on ARCH_MSM
+	select ZTE_BOOT_MODE
 	help
 	  This enables support for the MSM8937 chipset. If you don't
 	  know what to do here, say N
@@ -361,6 +362,18 @@ config ARCH_MSM8994_V1_TLBI_WA
 	  operations with VA or ASID will not work.
 
 endmenu
+
+config ZTE_PIL_AUTH_ERROR_DETECTION
+	bool "ZTE PIL AUTH ERROR DETECTION"
+	default n
+	help
+	  When authorization of PIL images is failed, the system
+	  will enter into UNAUTH mode to show related error message.
+
+config ENABLE_POWER_REASON_NODE
+	bool "Power reason node"
+	help
+	  Power reason node.
 
 menu "Bus support"
 
