@@ -961,6 +961,11 @@ static int msm_eeprom_get_dt_data(struct msm_eeprom_ctrl_t *e_ctrl)
 			spi_client->spi_master->dev.of_node;
 	else if (e_ctrl->eeprom_device_type == MSM_CAMERA_PLATFORM_DEVICE)
 		of_node = e_ctrl->pdev->dev.of_node;
+#ifdef CONFIG_BOARD_ZTE
+	/* zte add for i2c type */
+	else if (e_ctrl->eeprom_device_type == MSM_CAMERA_I2C_DEVICE)
+		of_node = e_ctrl->i2c_client.client->dev.of_node;
+#endif
 
 	if (!of_node) {
 		pr_err("%s: %d of_node is NULL\n", __func__ , __LINE__);
@@ -1518,7 +1523,11 @@ static int msm_eeprom_config32(struct msm_eeprom_ctrl_t *e_ctrl,
 		if (e_ctrl->userspace_probe == 0) {
 			pr_err("%s:%d Eeprom already probed at kernel boot",
 				__func__, __LINE__);
+#ifdef CONFIG_BOARD_ZTE
+			rc = 0; /* return 0 for boot eeprom */
+#else
 			rc = -EINVAL;
+#endif
 			break;
 		}
 		if (e_ctrl->cal_data.num_data == 0) {
@@ -1686,6 +1695,11 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 			goto board_free;
 		}
 
+#ifndef CONFIG_BOARD_ZTE
+/**
+  * Remove i2c-freq-mode property
+  * Dts has no i2c-freq-mode property,and need to remove it.
+  */
 		rc = of_property_read_u32(of_node, "qcom,i2c-freq-mode",
 			&e_ctrl->i2c_freq_mode);
 		CDBG("qcom,i2c_freq_mode %d, rc %d\n",
@@ -1700,10 +1714,13 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 				__func__, __LINE__, e_ctrl->i2c_freq_mode);
 			e_ctrl->i2c_freq_mode = 0;
 		}
+#endif
 		eb_info->i2c_slaveaddr = temp;
 		CDBG("qcom,slave-addr = 0x%X\n", eb_info->i2c_slaveaddr);
+#ifndef CONFIG_BOARD_ZTE
 		eb_info->i2c_freq_mode = e_ctrl->i2c_freq_mode;
 		cci_client->i2c_freq_mode = e_ctrl->i2c_freq_mode;
+#endif
 		cci_client->sid = eb_info->i2c_slaveaddr >> 1;
 
 		rc = msm_eeprom_parse_memory_map(of_node, &e_ctrl->cal_data);
@@ -1817,6 +1834,15 @@ static const struct of_device_id msm_eeprom_dt_match[] = {
 
 MODULE_DEVICE_TABLE(of, msm_eeprom_dt_match);
 
+#ifdef CONFIG_BOARD_ZTE
+/* zte add for i2c type */
+static const struct of_device_id msm_eeprom_i2c_dt_match[] = {
+	{ .compatible = "qcom,eeprom" },
+	{ }
+};
+
+MODULE_DEVICE_TABLE(of, msm_eeprom_i2c_dt_match);
+#endif
 static struct platform_driver msm_eeprom_platform_driver = {
 	.driver = {
 		.name = "qcom,eeprom",
@@ -1838,6 +1864,10 @@ static struct i2c_driver msm_eeprom_i2c_driver = {
 	.remove = msm_eeprom_i2c_remove,
 	.driver = {
 		.name = "msm_eeprom",
+#ifdef CONFIG_BOARD_ZTE
+		.owner = THIS_MODULE, /* zte add for i2c type */
+		.of_match_table = msm_eeprom_i2c_dt_match,
+#endif
 	},
 };
 
@@ -1869,7 +1899,11 @@ static void __exit msm_eeprom_exit_module(void)
 	i2c_del_driver(&msm_eeprom_i2c_driver);
 }
 
+#ifdef CONFIG_DO_DEFERRED_INITCALL
+deferred_module_init(msm_eeprom_init_module);
+#else
 module_init(msm_eeprom_init_module);
+#endif
 module_exit(msm_eeprom_exit_module);
 MODULE_DESCRIPTION("MSM EEPROM driver");
 MODULE_LICENSE("GPL v2");
