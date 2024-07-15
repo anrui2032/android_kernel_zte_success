@@ -9,7 +9,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifdef CONFIG_BOARD_ZTE
+#define pr_fmt(fmt) "ZTECHG:SMB135X: %s: " fmt, __func__
+#else
 #define pr_fmt(fmt) "%s: " fmt, __func__
+#endif
 
 #include <linux/i2c.h>
 #include <linux/debugfs.h>
