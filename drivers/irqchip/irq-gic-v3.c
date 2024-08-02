@@ -357,6 +357,11 @@ static int gic_suspend(void)
 	return 0;
 }
 
+/* zte_pm, begin */
+#ifdef CONFIG_BOARD_ZTE
+extern void print_irq_info(int i);
+#endif
+/* zte_pm, end */
 static void gic_show_resume_irq(struct gic_chip_data *gic)
 {
 	unsigned int i;
@@ -386,6 +391,11 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 			name = desc->action->name;
 
 		pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+		/* zte_pm ++++ show resume irq detail info */
+#ifdef CONFIG_BOARD_ZTE
+		print_irq_info(irq);
+#endif
+		/* zte_pm---- */
 	}
 }
 
