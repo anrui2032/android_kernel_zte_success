@@ -316,12 +316,21 @@ struct device_node *of_batterydata_get_best_profile(
 {
 	struct batt_ids batt_ids;
 	struct device_node *node, *best_node = NULL;
+#ifdef CONFIG_BOARD_ZTE
+	struct device_node *last_node  = NULL;
+#endif
 	struct power_supply *psy;
 	const char *battery_type = NULL;
 	union power_supply_propval ret = {0, };
 	int delta = 0, best_delta = 0, best_id_kohm = 0, id_range_pct,
 		batt_id_kohm = 0, i = 0, rc = 0, limit = 0;
+#if defined(CONFIG_ZTE_BATT_ID_PARALLEL_RESISTANCE_330KOHM)
+	int batt_id_parallel_330_kohm = 0;
+#endif
 	bool in_range = false;
+#ifdef CONFIG_BOARD_ZTE
+	static bool first_run = true;
+#endif
 
 	psy = power_supply_get_by_name(psy_name);
 	if (!psy) {
@@ -335,7 +344,23 @@ struct device_node *of_batterydata_get_best_profile(
 		return ERR_PTR(-ENOSYS);
 	}
 
+#if defined(CONFIG_ZTE_BATT_ID_PARALLEL_RESISTANCE_330KOHM)
+	batt_id_parallel_330_kohm = ret.intval / 1000;
+	batt_id_kohm = 330 * batt_id_parallel_330_kohm / (330-batt_id_parallel_330_kohm);
+	pr_info("batt_id_parallel_330_kohm = %d, batt_id_kohm = %d, first_run = %d\n",
+		batt_id_parallel_330_kohm, batt_id_kohm, first_run);
+#else
 	batt_id_kohm = ret.intval / 1000;
+#ifdef CONFIG_BOARD_ZTE
+	pr_info("batt_id_kohm = %d, first_run = %d\n", batt_id_kohm, first_run);
+#endif
+#endif
+
+	/* set id_kohm to 20, only for PV version. added by lixinghe 20161209. */
+#if 0
+	batt_id_kohm = 20;
+	pr_info("batt_id_kohm = %d\n", batt_id_kohm);
+#endif
 
 	/* read battery id range percentage for best profile */
 	rc = of_property_read_u32(batterydata_container_node,
@@ -360,6 +385,10 @@ struct device_node *of_batterydata_get_best_profile(
 			if (!rc && strcmp(battery_type, batt_type) == 0) {
 				best_node = node;
 				best_id_kohm = batt_id_kohm;
+#ifdef CONFIG_BOARD_ZTE
+				pr_info("I found the batterydata, node:%s, best_id_kohm=%d\n",
+					batt_type, batt_id_kohm);
+#endif
 				break;
 			}
 		} else {
@@ -385,13 +414,25 @@ struct device_node *of_batterydata_get_best_profile(
 				}
 			}
 		}
+#ifdef CONFIG_BOARD_ZTE
+		if (node != NULL)
+			last_node = node;
+#endif
 	}
+#ifdef CONFIG_BOARD_ZTE
+	if ((!first_run) && (best_node == NULL) && (last_node != NULL)) {
+		pr_err("no suitable battery data found, use the last profile as default.\n");
+		best_node = last_node;
+	}
+	first_run = false;
+#endif
 
 	if (best_node == NULL) {
 		pr_err("No battery data found\n");
 		return best_node;
 	}
 
+#ifndef CONFIG_BOARD_ZTE
 	/* check that profile id is in range of the measured batt_id */
 	if (abs(best_id_kohm - batt_id_kohm) >
 			((best_id_kohm * id_range_pct) / 100)) {
@@ -399,6 +440,7 @@ struct device_node *of_batterydata_get_best_profile(
 			best_id_kohm, batt_id_kohm, id_range_pct);
 		return NULL;
 	}
+#endif
 
 	rc = of_property_read_string(best_node, "qcom,battery-type",
 							&battery_type);
