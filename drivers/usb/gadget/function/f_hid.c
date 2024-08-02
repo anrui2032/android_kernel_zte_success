@@ -197,6 +197,13 @@ static ssize_t f_hidg_read(struct file *file, char __user *buffer,
 	/* pick the first one */
 	list = list_first_entry(&hidg->completed_out_req,
 				struct f_hidg_req_list, list);
+#ifdef CONFIG_BOARD_ZTE
+	/*
+	 * Remove this from list to protect it from beign free()
+	 * while host disables our function
+	 */
+	list_del(&list->list);
+#endif
 	req = list->req;
 	count = min_t(unsigned int, count, req->actual - list->pos);
 	spin_unlock_irqrestore(&hidg->spinlock, flags);
@@ -212,15 +219,32 @@ static ssize_t f_hidg_read(struct file *file, char __user *buffer,
 	 * call, taking into account its current read position.
 	 */
 	if (list->pos == req->actual) {
+#ifndef CONFIG_BOARD_ZTE
 		spin_lock_irqsave(&hidg->spinlock, flags);
 		list_del(&list->list);
+#endif
 		kfree(list);
+#ifndef CONFIG_BOARD_ZTE
 		spin_unlock_irqrestore(&hidg->spinlock, flags);
+#endif
 
 		req->length = hidg->report_length;
 		ret = usb_ep_queue(hidg->out_ep, req, GFP_KERNEL);
+#ifdef CONFIG_BOARD_ZTE
+		if (ret < 0) {
+			free_ep_req(hidg->out_ep, req);
+			return ret;
+		}
+	} else {
+		spin_lock_irqsave(&hidg->spinlock, flags);
+		list_add(&list->list, &hidg->completed_out_req);
+		spin_unlock_irqrestore(&hidg->spinlock, flags);
+
+		wake_up(&hidg->read_queue);
+#else
 		if (ret < 0)
 			return ret;
+#endif
 	}
 
 	return count;
@@ -455,6 +479,9 @@ static void hidg_disable(struct usb_function *f)
 {
 	struct f_hidg *hidg = func_to_hidg(f);
 	struct f_hidg_req_list *list, *next;
+#ifdef CONFIG_BOARD_ZTE
+	unsigned long flags;
+#endif
 
 	usb_ep_disable(hidg->in_ep);
 	hidg->in_ep->driver_data = NULL;
@@ -462,10 +489,19 @@ static void hidg_disable(struct usb_function *f)
 	usb_ep_disable(hidg->out_ep);
 	hidg->out_ep->driver_data = NULL;
 
+#ifdef CONFIG_BOARD_ZTE
+	spin_lock_irqsave(&hidg->spinlock, flags);
+#endif
 	list_for_each_entry_safe(list, next, &hidg->completed_out_req, list) {
+#ifdef CONFIG_BOARD_ZTE
+		free_ep_req(hidg->out_ep, list->req);
+#endif
 		list_del(&list->list);
 		kfree(list);
 	}
+#ifdef CONFIG_BOARD_ZTE
+	spin_unlock_irqrestore(&hidg->spinlock, flags);
+#endif
 }
 
 static int hidg_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
