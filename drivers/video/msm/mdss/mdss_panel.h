@@ -422,6 +422,9 @@ struct mipi_panel_info {
 	u32  init_delay;
 	u32  post_init_delay;
 	u8 default_lanes;
+#ifdef CONFIG_BOARD_ZTE
+	bool zte_12bit_51reg_inverse_enabled;
+#endif
 };
 
 struct edp_panel_info {
