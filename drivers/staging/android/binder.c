@@ -463,9 +463,14 @@ struct binder_ref {
 };
 
 enum binder_deferred_state {
+#ifdef CONFIG_BOARD_ZTE
+	BINDER_DEFERRED_FLUSH        = 0x01,
+	BINDER_DEFERRED_RELEASE      = 0x02,
+#else
 	BINDER_DEFERRED_PUT_FILES    = 0x01,
 	BINDER_DEFERRED_FLUSH        = 0x02,
 	BINDER_DEFERRED_RELEASE      = 0x04,
+#endif
 };
 
 /**
@@ -502,8 +507,10 @@ struct binder_priority {
  *                        (invariant after initialized)
  * @tsk                   task_struct for group_leader of process
  *                        (invariant after initialized)
+#ifndef CONFIG_BOARD_ZTE
  * @files                 files_struct for process
  *                        (invariant after initialized)
+#endif
  * @deferred_work_node:   element for binder_deferred_list
  *                        (protected by binder_deferred_lock)
  * @deferred_work:        bitmap of deferred work to perform
@@ -550,7 +557,9 @@ struct binder_proc {
 	struct list_head waiting_threads;
 	int pid;
 	struct task_struct *tsk;
+#ifndef CONFIG_BOARD_ZTE
 	struct files_struct *files;
+#endif
 	struct hlist_node deferred_work_node;
 	int deferred_work;
 	bool is_dead;
@@ -899,22 +908,51 @@ static void binder_free_thread(struct binder_thread *thread);
 static void binder_free_proc(struct binder_proc *proc);
 static void binder_inc_node_tmpref_ilocked(struct binder_node *node);
 
+#ifdef CONFIG_BOARD_ZTE
+struct files_struct *binder_get_files_struct(struct binder_proc *proc)
+{
+	return get_files_struct(proc->tsk);
+}
+#endif
 static int task_get_unused_fd_flags(struct binder_proc *proc, int flags)
 {
+#ifdef CONFIG_BOARD_ZTE
+	struct files_struct *files;
+#else
 	struct files_struct *files = proc->files;
+#endif
 	unsigned long rlim_cur;
 	unsigned long irqs;
+#ifdef CONFIG_BOARD_ZTE
+	int ret;
+
+	files = binder_get_files_struct(proc);
+#endif
 
 	if (files == NULL)
 		return -ESRCH;
 
+#ifdef CONFIG_BOARD_ZTE
+	if (!lock_task_sighand(proc->tsk, &irqs)) {
+		ret = -EMFILE;
+		goto err;
+	}
+#else
 	if (!lock_task_sighand(proc->tsk, &irqs))
 		return -EMFILE;
+#endif
 
 	rlim_cur = task_rlimit(proc->tsk, RLIMIT_NOFILE);
 	unlock_task_sighand(proc->tsk, &irqs);
 
+#ifdef CONFIG_BOARD_ZTE
+	ret = __alloc_fd(files, 0, rlim_cur, flags);
+err:
+	put_files_struct(files);
+	return ret;
+#else
 	return __alloc_fd(files, 0, rlim_cur, flags);
+#endif
 }
 
 /*
@@ -923,8 +961,17 @@ static int task_get_unused_fd_flags(struct binder_proc *proc, int flags)
 static void task_fd_install(
 	struct binder_proc *proc, unsigned int fd, struct file *file)
 {
+#ifdef CONFIG_BOARD_ZTE
+	struct files_struct *files = binder_get_files_struct(proc);
+
+	if (files) {
+		__fd_install(files, fd, file);
+		put_files_struct(files);
+	}
+#else
 	if (proc->files)
 		__fd_install(proc->files, fd, file);
+#endif
 }
 
 /*
@@ -932,18 +979,32 @@ static void task_fd_install(
  */
 static long task_close_fd(struct binder_proc *proc, unsigned int fd)
 {
+#ifdef CONFIG_BOARD_ZTE
+	struct files_struct *files = binder_get_files_struct(proc);
+#endif
 	int retval;
 
+#ifdef CONFIG_BOARD_ZTE
+	if (files == NULL)
+#else
 	if (proc->files == NULL)
+#endif
 		return -ESRCH;
 
+#ifdef CONFIG_BOARD_ZTE
+	retval = __close_fd(files, fd);
+#else
 	retval = __close_fd(proc->files, fd);
+#endif
 	/* can't restart close syscall because file table entry was cleared */
 	if (unlikely(retval == -ERESTARTSYS ||
 		     retval == -ERESTARTNOINTR ||
 		     retval == -ERESTARTNOHAND ||
 		     retval == -ERESTART_RESTARTBLOCK))
 		retval = -EINTR;
+#ifdef CONFIG_BOARD_ZTE
+	put_files_struct(files);
+#endif
 
 	return retval;
 }
@@ -4749,7 +4810,9 @@ static void binder_vma_close(struct vm_area_struct *vma)
 		     (vma->vm_end - vma->vm_start) / SZ_1K, vma->vm_flags,
 		     (unsigned long)pgprot_val(vma->vm_page_prot));
 	binder_alloc_vma_close(&proc->alloc);
+#ifndef CONFIG_BOARD_ZTE
 	binder_defer_work(proc, BINDER_DEFERRED_PUT_FILES);
+#endif
 }
 
 static int binder_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
@@ -4791,10 +4854,14 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_private_data = proc;
 
 	ret = binder_alloc_mmap_handler(&proc->alloc, vma);
+#ifdef CONFIG_BOARD_ZTE
+	return ret;
+#else
 	if (ret)
 		return ret;
 	proc->files = get_files_struct(current);
 	return 0;
+#endif
 
 err_bad_arg:
 	pr_err("binder_mmap: %d %lx-%lx %s failed %d\n",
@@ -4973,7 +5040,9 @@ static void binder_deferred_release(struct binder_proc *proc)
 	struct rb_node *n;
 	int threads, nodes, incoming_refs, outgoing_refs, active_transactions;
 
+#ifndef CONFIG_BOARD_ZTE
 	BUG_ON(proc->files);
+#endif
 
 	mutex_lock(&binder_procs_lock);
 	hlist_del(&proc->proc_node);
@@ -5056,7 +5125,9 @@ static void binder_deferred_release(struct binder_proc *proc)
 static void binder_deferred_func(struct work_struct *work)
 {
 	struct binder_proc *proc;
+#ifndef CONFIG_BOARD_ZTE
 	struct files_struct *files;
+#endif
 
 	int defer;
 
@@ -5074,12 +5145,14 @@ static void binder_deferred_func(struct work_struct *work)
 		}
 		mutex_unlock(&binder_deferred_lock);
 
+#ifndef CONFIG_BOARD_ZTE
 		files = NULL;
 		if (defer & BINDER_DEFERRED_PUT_FILES) {
 			files = proc->files;
 			if (files)
 				proc->files = NULL;
 		}
+#endif
 
 		if (defer & BINDER_DEFERRED_FLUSH)
 			binder_deferred_flush(proc);
@@ -5087,8 +5160,10 @@ static void binder_deferred_func(struct work_struct *work)
 		if (defer & BINDER_DEFERRED_RELEASE)
 			binder_deferred_release(proc); /* frees proc */
 
+#ifndef CONFIG_BOARD_ZTE
 		if (files)
 			put_files_struct(files);
+#endif
 	} while (proc);
 }
 static DECLARE_WORK(binder_deferred_work, binder_deferred_func);
