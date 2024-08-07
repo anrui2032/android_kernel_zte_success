@@ -1739,6 +1739,38 @@ static bool qtaguid_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	 * Thus (!a && b) || (a && !b) == a ^ b
 	 */
 	if (info->match & XT_QTAGUID_UID) {
+#ifdef CONFIG_BOARD_ZTE
+#ifdef ZTE_MULTIPLE_UID_LIMIT_NET_RATE
+		if (info->uid_array_pos) {
+			__u32 i = 0, is_match_uid = 0;
+			kuid_t temp_uid;
+
+			for (;i < info->uid_array_pos; i++) {
+				temp_uid = make_kuid(&init_user_ns, info->uid_array[i]);
+				if (uid_eq(temp_uid, sock_uid)) {
+					is_match_uid = 1;
+					break;
+				}
+			}
+			if (is_match_uid ^ !(info->invert & XT_OWNER_UID)) {
+				res = false;
+				goto put_sock_ret_res;
+			}
+		} else
+#endif
+		{
+			kuid_t uid_min = make_kuid(&init_user_ns, info->uid_min);
+			kuid_t uid_max = make_kuid(&init_user_ns, info->uid_max);
+
+			if ((uid_gte(sock_uid, uid_min) &&
+			     uid_lte(sock_uid, uid_max)) ^
+			    !(info->invert & XT_QTAGUID_UID)) {
+				MT_DEBUG("qtaguid[%d]: leaving uid not matching\n",
+					 par->hooknum);
+				res = false;
+				goto put_sock_ret_res;
+			}
+#else
 		kuid_t uid_min = make_kuid(&init_user_ns, info->uid_min);
 		kuid_t uid_max = make_kuid(&init_user_ns, info->uid_max);
 
@@ -1749,6 +1781,7 @@ static bool qtaguid_mt(const struct sk_buff *skb, struct xt_action_param *par)
 				 par->hooknum);
 			res = false;
 			goto put_sock_ret_res;
+#endif
 		}
 	}
 	if (info->match & XT_QTAGUID_GID) {

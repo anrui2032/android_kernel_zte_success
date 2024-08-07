@@ -562,6 +562,11 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
 			skb_set_owner_r(newnp->pktoptions, newsk);
 	}
 	newnp->opt	  = NULL;
+#ifdef CONFIG_BOARD_ZTE
+	newnp->ipv6_mc_list = NULL;
+	newnp->ipv6_ac_list = NULL;
+	newnp->ipv6_fl_list = NULL;
+#endif
 	newnp->mcast_oif  = inet6_iif(skb);
 	newnp->mcast_hops = ipv6_hdr(skb)->hop_limit;
 
