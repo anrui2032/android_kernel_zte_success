@@ -150,7 +150,13 @@ static int snd_pcm_control_ioctl(struct snd_card *card,
 				err = -ENXIO;
 				goto _error;
 			}
+#ifdef CONFIG_BOARD_ZTE
+			mutex_lock(&pcm->open_mutex);
+#endif
 			err = snd_pcm_info_user(substream, info);
+#ifdef CONFIG_BOARD_ZTE
+			mutex_unlock(&pcm->open_mutex);
+#endif
 		_error:
 			mutex_unlock(&register_mutex);
 			return err;
