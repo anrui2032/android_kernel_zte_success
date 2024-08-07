@@ -1441,6 +1441,10 @@ int vt_move_to_console(unsigned int vt, int alloc)
 	}
 	prev = fg_console;
 
+#ifdef CONFIG_BOARD_ZTE
+	/* zte_pm add */
+	pr_info("zte_console BEGIN: %s console %d -> %d\n", alloc ? "SUSPEND" : "RESUME", prev, vt);
+#endif
 	if (alloc && vc_allocate(vt)) {
 		/* we can't have a free VC for now. Too bad,
 		 * we don't want to mess the screen for now. */
@@ -1462,6 +1466,9 @@ int vt_move_to_console(unsigned int vt, int alloc)
 		pr_debug("Suspend: Can't switch VCs.");
 		return -EINTR;
 	}
+#ifdef CONFIG_BOARD_ZTE
+	pr_info("zte_console DONE\n"); /* zte_pm add */
+#endif
 	return prev;
 }
 
