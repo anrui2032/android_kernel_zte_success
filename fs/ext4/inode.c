@@ -663,6 +663,7 @@ has_zeroout:
 		if (ret != 0)
 			return ret;
 
+#ifndef CONFIG_BOARD_ZTE
 		/*
 		 * Inodes with freshly allocated blocks where contents will be
 		 * visible after transaction commit must be on transaction's
@@ -676,6 +677,7 @@ has_zeroout:
 			if (ret)
 				return ret;
 		}
+#endif
 	}
 	return retval;
 }
@@ -1142,6 +1144,16 @@ static int ext4_write_end(struct file *file,
 
 	trace_android_fs_datawrite_end(inode, pos, len);
 	trace_ext4_write_end(inode, pos, len, copied);
+#ifdef CONFIG_BOARD_ZTE
+	if (ext4_test_inode_state(inode, EXT4_STATE_ORDERED_MODE)) {
+		ret = ext4_jbd2_file_inode(handle, inode);
+		if (ret) {
+			unlock_page(page);
+			page_cache_release(page);
+			goto errout;
+		}
+	}
+#endif
 	if (ext4_has_inline_data(inode)) {
 		ret = ext4_write_inline_data_end(inode, pos, len,
 						 copied, page);

@@ -29,7 +29,9 @@
 #include "segment.h"
 #include "trace.h"
 #include <trace/events/f2fs.h>
+#ifndef CONFIG_BOARD_ZTE
 #include <trace/events/android_fs.h>
+#endif
 
 static bool __is_cp_guaranteed(struct page *page)
 {
@@ -1378,6 +1380,12 @@ retry_encrypt:
 static inline bool need_inplace_update(struct f2fs_io_info *fio)
 {
 	struct inode *inode = fio->page->mapping->host;
+#ifdef CONFIG_BOARD_ZTE
+	/* zte-modify: chenshaohua for google's patch for disable GC for specific file, 20180327 */
+	if (f2fs_is_pinned_file(inode))
+		return true;
+	/* end modify */
+#endif
 
 	if (S_ISDIR(inode->i_mode) || f2fs_is_atomic_file(inode))
 		return false;
@@ -1941,17 +1949,30 @@ static int f2fs_write_begin(struct file *file, struct address_space *mapping,
 	block_t blkaddr = NULL_ADDR;
 	int err = 0;
 
+#ifdef CONFIG_BOARD_ZTE
+	trace_f2fs_write_begin(inode, pos, len, flags);
+#else
 	if (trace_android_fs_datawrite_start_enabled()) {
 		char *path, pathbuf[MAX_TRACE_PATHBUF_LEN];
+#endif
 
+#ifdef CONFIG_BOARD_ZTE
+	if (f2fs_is_atomic_file(inode) &&
+			!available_free_memory(sbi, INMEM_PAGES)) {
+		err = -ENOMEM;
+		goto fail;
+#else
 		path = android_fstrace_get_pathname(pathbuf,
 						    MAX_TRACE_PATHBUF_LEN,
 						    inode);
 		trace_android_fs_datawrite_start(inode, pos, len,
 						 current->pid, path,
 						 current->comm);
+#endif
 	}
+#ifndef CONFIG_BOARD_ZTE
 	trace_f2fs_write_begin(inode, pos, len, flags);
+#endif
 
 	if (f2fs_is_atomic_file(inode) &&
 			!available_free_memory(sbi, INMEM_PAGES)) {
@@ -2048,7 +2069,9 @@ static int f2fs_write_end(struct file *file,
 {
 	struct inode *inode = page->mapping->host;
 
+#ifndef CONFIG_BOARD_ZTE
 	trace_android_fs_datawrite_end(inode, pos, len);
+#endif
 	trace_f2fs_write_end(inode, pos, len, copied);
 
 	/*
@@ -2104,6 +2127,7 @@ static ssize_t f2fs_direct_IO(int rw, struct kiocb *iocb, struct iov_iter *iter,
 	if (__force_buffered_io(inode, rw))
 		return 0;
 
+#ifndef CONFIG_BOARD_ZTE
 	if (trace_android_fs_dataread_start_enabled() && (rw == READ)) {
 		char *path, pathbuf[MAX_TRACE_PATHBUF_LEN];
 
@@ -2124,6 +2148,7 @@ static ssize_t f2fs_direct_IO(int rw, struct kiocb *iocb, struct iov_iter *iter,
 						 current->pid, path,
 						 current->comm);
 	}
+#endif
 
 	trace_f2fs_direct_IO_enter(inode, offset, count, rw);
 
@@ -2143,10 +2168,12 @@ static ssize_t f2fs_direct_IO(int rw, struct kiocb *iocb, struct iov_iter *iter,
 
 	trace_f2fs_direct_IO_exit(inode, offset, count, rw, err);
 
+#ifndef CONFIG_BOARD_ZTE
 	if (trace_android_fs_dataread_start_enabled() && (rw == READ))
 		trace_android_fs_dataread_end(inode, offset, count);
 	if (trace_android_fs_datawrite_start_enabled() && (rw == WRITE))
 		trace_android_fs_datawrite_end(inode, offset, count);
+#endif
 
 	return err;
 }
