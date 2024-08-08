@@ -120,9 +120,21 @@ enum msm_usb_phy_type {
 	QUSB_ULPI_PHY,
 };
 
+#if defined(CONFIG_BOARD_TESLA) || defined(CONFIG_BOARD_GULDAN)
+#define IDEV_CHG_MAX	2100
+#else
 #define IDEV_CHG_MAX	1500
+#endif
+#ifdef CONFIG_BOARD_ZTE
+#define IDEV_CHG_MID	1000
+#define IDEV_CHG_MIN	500
+#endif
 #define IUNIT		100
+#ifdef CONFIG_BOARD_ZTE
+#define IDEV_HVDCP_CHG_MAX	1500
+#else
 #define IDEV_HVDCP_CHG_MAX	1800
+#endif
 
 /**
  * Different states involved in USB charger detection.
@@ -455,6 +467,11 @@ struct msm_otg {
 	struct workqueue_struct *otg_wq;
 	struct delayed_work chg_work;
 	struct delayed_work id_status_work;
+#ifdef CONFIG_BOARD_ZTE
+	/* wall charger in which D+/D- disconnected would be recognized as usb cable, 1/7 */
+	struct delayed_work invalid_chg_work;
+	/* end. */
+#endif
 	enum usb_chg_state chg_state;
 	enum usb_chg_type chg_type;
 	u8 dcd_retries;
@@ -559,6 +576,11 @@ struct msm_otg {
 	int pm_qos_latency;
 	struct pm_qos_request pm_qos_req_dma;
 	struct delayed_work perf_vote_work;
+#ifdef CONFIG_BOARD_ZTE
+	/* Usb online lpm test requirement, 1/5 */
+	struct class *lpm_test_class;
+	struct device *lpm_test_dev;
+#endif
 };
 
 struct ci13xxx_platform_data {

@@ -597,6 +597,11 @@ struct usb_gadget_ops {
 			struct usb_gadget_driver *);
 	int	(*udc_stop)(struct usb_gadget *,
 			struct usb_gadget_driver *);
+#ifdef CONFIG_BOARD_ZTE
+	/* for notify otg from gadget, 3/8 */
+	int	(*notify_otg)(struct usb_gadget *, unsigned event);
+	/* end */
+#endif
 };
 
 /**
@@ -876,6 +881,16 @@ static inline int usb_gadget_vbus_draw(struct usb_gadget *gadget, unsigned mA)
 	return gadget->ops->vbus_draw(gadget, mA);
 }
 
+#ifdef CONFIG_BOARD_ZTE
+/* for notify otg from gadget, 2/8 */
+static inline int usb_gadget_notify_otg(struct usb_gadget *gadget, unsigned event)
+{
+	if (!gadget->ops->notify_otg)
+		return -EOPNOTSUPP;
+	return gadget->ops->notify_otg(gadget, event);
+}
+/* end */
+#endif
 /**
  * usb_gadget_vbus_disconnect - notify controller about VBUS session end
  * @gadget:the device whose VBUS supply is being described

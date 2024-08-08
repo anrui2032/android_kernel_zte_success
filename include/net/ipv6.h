@@ -940,5 +940,9 @@ struct ctl_table *ipv6_route_sysctl_init(struct net *net);
 int ipv6_sysctl_register(void);
 void ipv6_sysctl_unregister(void);
 #endif
+#ifdef CONFIG_BOARD_ZTE
+void xt_socket_get6_print(struct sk_buff *skb, int direction);    /*ZTE_LC_TCP_DEBUG, 20170418 improved*/
+extern int tcp_socket_debugfs;
+#endif
 
 #endif /* _NET_IPV6_H */
