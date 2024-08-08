@@ -72,6 +72,25 @@ struct rmidev_data {
 	struct rmidev_handle *rmi_dev;
 };
 
+#ifdef CONFIG_BOARD_ZTE
+static struct device_attribute attrs[] = {
+	__ATTR(open, S_IWUSR,
+			NULL,
+			rmidev_sysfs_open_store),
+	__ATTR(release, S_IWUSR,
+			NULL,
+			rmidev_sysfs_release_store),
+	__ATTR(address, S_IWUSR,
+			NULL,
+			rmidev_sysfs_address_store),
+	__ATTR(length, S_IWUSR,
+			NULL,
+			rmidev_sysfs_length_store),
+	__ATTR(data, S_IWUSR,
+			rmidev_sysfs_data_show,
+			rmidev_sysfs_data_store),
+};
+#else
 static struct device_attribute attrs[] = {
 	__ATTR(open, S_IWUSR | S_IWGRP,
 			NULL,
@@ -89,6 +108,7 @@ static struct device_attribute attrs[] = {
 			rmidev_sysfs_data_show,
 			rmidev_sysfs_data_store),
 };
+#endif
 
 static int rmidev_major_num;
 
