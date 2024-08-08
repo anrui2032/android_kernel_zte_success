@@ -1,0 +1,24 @@
+# ZTE configuration options
+
+config BOARD_ZTE
+	bool "ZTE device"
+	depends on ARCH_MSM
+	help
+	  Support for ZTE products
+
+config BOARD_ZTE_SDM450
+	bool "ZTE SDM450"
+	depends on ARCH_SDM450
+	select BOARD_ZTE
+	help
+	  Support for SDM450-based ZTE variants
+
+menu "ZTE board selection"
+
+config BOARD_ZTE_SUCCESS
+	bool "ZTE success board"
+	select BOARD_ZTE_SDM450
+	help
+	  Support for ZTE Blade V9
+
+endmenu
