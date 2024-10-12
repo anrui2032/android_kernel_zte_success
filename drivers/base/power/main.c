@@ -873,9 +873,23 @@ void dpm_resume(pm_message_t state)
 		if (!is_async(dev)) {
 			int error;
 
+#ifdef CONFIG_BOARD_ZTE
+			/* zte_pm ++++, begin */
+			unsigned long jif = 0;
+#endif
 			mutex_unlock(&dpm_list_mtx);
 
+#ifdef CONFIG_BOARD_ZTE
+			jif = jiffies;
+#endif
 			error = device_resume(dev, state, false);
+#ifdef CONFIG_BOARD_ZTE
+			if ((jiffies - jif) > 1) {
+				pr_err("ZTE_PM: devices of %s exit device_resume() %lu ms\n",
+						dev_name(dev), (jiffies - jif)*10);
+			}
+			/* zte_pm ----, end */
+#endif
 			if (error) {
 				suspend_stats.failed_resume++;
 				dpm_save_failed_step(SUSPEND_RESUME);
