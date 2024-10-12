@@ -31,6 +31,9 @@
 #include "pil-q6v5.h"
 #include "pil-msa.h"
 
+#ifdef CONFIG_BOARD_ZTE
+#include <linux/reboot.h>
+#endif
 /* Q6 Register Offsets */
 #define QDSP6SS_RST_EVB			0x010
 #define QDSP6SS_DBG_CFG			0x018
@@ -501,8 +504,18 @@ static int pil_mss_reset(struct pil_desc *pil)
 	/* Wait for MBA to start. Check for PBL and MBA errors while waiting. */
 	if (drv->self_auth) {
 		ret = pil_msa_wait_for_mba_ready(drv);
+#ifdef CONFIG_BOARD_ZTE
+		if (ret) {
+#ifdef CONFIG_ZTE_PIL_AUTH_ERROR_DETECTION
+			kernel_restart("unauth");
+#endif
+
+			goto err_q6v5_reset;
+		}
+#else
 		if (ret)
 			goto err_q6v5_reset;
+#endif
 	}
 
 	dev_info(pil->dev, "MBA boot done\n");
@@ -530,7 +543,11 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	const struct firmware *fw, *dp_fw = NULL;
 	char fw_name_legacy[10] = "mba.b00";
 	char fw_name[10] = "mba.mbn";
+#ifdef CONFIG_BOARD_ZTE
+	char *dp_name = "msadp.mbn";
+#else
 	char *dp_name = "msadp";
+#endif
 	char *fw_name_p;
 	void *mba_dp_virt;
 	dma_addr_t mba_dp_phys, mba_dp_phys_end;
@@ -725,6 +742,11 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 
 	dma_free_attrs(dma_dev, size, mdata_virt, mdata_phys, &attrs);
 
+#ifdef CONFIG_ZTE_PIL_AUTH_ERROR_DETECTION
+	if (ret) {
+		kernel_restart("unauth");
+	}
+#endif
 	if (!ret)
 		return ret;
 
@@ -822,6 +844,11 @@ static int pil_msa_mba_auth(struct pil_desc *pil)
 	if (q6_drv->ahb_clk_vote)
 		clk_disable_unprepare(q6_drv->ahb_clk);
 
+#ifdef CONFIG_ZTE_PIL_AUTH_ERROR_DETECTION
+	if (ret) {
+		kernel_restart("unauth");
+	}
+#endif
 	return ret;
 }
 

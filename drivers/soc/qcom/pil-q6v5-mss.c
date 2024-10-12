@@ -32,6 +32,9 @@
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/smem.h>
 #include <soc/qcom/smsm.h>
+#ifdef CONFIG_BOARD_ZTE
+#include <soc/qcom/vendor/modem_fatal_error.h>
+#endif
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
@@ -63,6 +66,9 @@ static void log_modem_sfr(void)
 	strlcpy(reason, smem_reason, min(size, MAX_SSR_REASON_LEN));
 	pr_err("modem subsystem failure reason: %s.\n", reason);
 
+#ifdef CONFIG_BOARD_ZTE
+	modem_fatal_error_update_reason(smem_reason);
+#endif
 	smem_reason[0] = '\0';
 	wmb();
 }
