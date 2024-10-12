@@ -641,18 +641,33 @@ void usb_destroy_configuration(struct usb_device *dev)
 		return;
 
 	if (dev->rawdescriptors) {
+#ifdef CONFIG_BOARD_ZTE
+		for (i = 0; i < dev->descriptor.bNumConfigurations &&
+				i < USB_MAXCONFIG; i++)
+#else
 		for (i = 0; i < dev->descriptor.bNumConfigurations; i++)
+#endif
 			kfree(dev->rawdescriptors[i]);
 
 		kfree(dev->rawdescriptors);
 		dev->rawdescriptors = NULL;
 	}
 
+#ifdef CONFIG_BOARD_ZTE
+	for (c = 0; c < dev->descriptor.bNumConfigurations &&
+			c < USB_MAXCONFIG; c++) {
+#else
 	for (c = 0; c < dev->descriptor.bNumConfigurations; c++) {
+#endif
 		struct usb_host_config *cf = &dev->config[c];
 
 		kfree(cf->string);
+#ifdef CONFIG_BOARD_ZTE
+		for (i = 0; i < cf->desc.bNumInterfaces &&
+				i < USB_MAXINTERFACES; i++) {
+#else
 		for (i = 0; i < cf->desc.bNumInterfaces; i++) {
+#endif
 			if (cf->intf_cache[i])
 				kref_put(&cf->intf_cache[i]->ref,
 					  usb_release_interface_cache);

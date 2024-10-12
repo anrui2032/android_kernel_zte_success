@@ -197,13 +197,11 @@ static ssize_t f_hidg_read(struct file *file, char __user *buffer,
 	/* pick the first one */
 	list = list_first_entry(&hidg->completed_out_req,
 				struct f_hidg_req_list, list);
-
 	/*
 	 * Remove this from list to protect it from beign free()
 	 * while host disables our function
 	 */
 	list_del(&list->list);
-
 	req = list->req;
 	count = min_t(unsigned int, count, req->actual - list->pos);
 	spin_unlock_irqrestore(&hidg->spinlock, flags);
