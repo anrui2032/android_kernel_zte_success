@@ -33,14 +33,22 @@ int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 	int      j = 0;
 
 	/* Validate input parameters */
+#ifdef CONFIG_BOARD_ZTE
+	if (!power_setting) {
+#else
 	if (!cam_vreg || !power_setting) {
+#endif
 		pr_err("%s:%d failed: cam_vreg %pK power_setting %pK", __func__,
 			__LINE__,  cam_vreg, power_setting);
 		return -EINVAL;
 	}
 
 	/* Validate size of num_vreg */
+#ifdef CONFIG_BOARD_ZTE
+	if (num_vreg < 0) {
+#else
 	if (num_vreg <= 0) {
+#endif
 		pr_err("failed: num_vreg %d", num_vreg);
 		return -EINVAL;
 	}

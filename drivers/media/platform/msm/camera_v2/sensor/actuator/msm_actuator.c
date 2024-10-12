@@ -1027,6 +1027,10 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 		}
 		for (; step_index <= step_boundary;
 			step_index++) {
+#ifdef CONFIG_BOARD_ZTE
+			CDBG("qvalue[%d] = %d, curr_code[%d] is %d, max_code_size is %d\n",
+				step_index, qvalue, step_index, cur_code, max_code_size);
+#endif
 			if (qvalue > 1 && qvalue <= MAX_QVALUE)
 				cur_code = step_index * code_per_step / qvalue;
 			else
@@ -1039,10 +1043,14 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 				for (; step_index <
 					set_info->af_tuning_params.total_steps;
 					step_index++)
+#ifdef CONFIG_BOARD_ZTE
+					a_ctrl->step_position_table[step_index] = max_code_size;
+#else
 					a_ctrl->
 						step_position_table[
 						step_index] =
 						max_code_size;
+#endif
 			}
 			CDBG("step_position_table[%d] = %d\n", step_index,
 				a_ctrl->step_position_table[step_index]);
