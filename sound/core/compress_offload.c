@@ -503,7 +503,11 @@ static int snd_compress_check_input(struct snd_compr_params *params)
 {
 	/* first let's check the buffer parameter's */
 	if (params->buffer.fragment_size == 0 ||
+#ifdef CONFIG_BOARD_ZTE
+	    params->buffer.fragments > INT_MAX / params->buffer.fragment_size)
+#else
 	    params->buffer.fragments > U32_MAX / params->buffer.fragment_size)
+#endif
 		return -EINVAL;
 
 	/* now codec parameters */
