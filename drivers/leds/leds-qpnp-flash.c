@@ -1312,7 +1312,10 @@ static void qpnp_flash_led_work(struct work_struct *work)
 	/* Global lock is to synchronize between the flash leds and torch */
 	mutex_lock(&led->flash_led_lock);
 	/* Local lock is to synchronize for one led instance */
+#ifndef CONFIG_BOARD_ZTE
+	/* delete lock ZTE_CAM_LIJING_20170310 */
 	mutex_lock(&flash_node->cdev.led_access);
+#endif
 
 	brightness = flash_node->cdev.brightness;
 	if (!brightness)
@@ -1783,7 +1786,10 @@ static void qpnp_flash_led_work(struct work_struct *work)
 
 	flash_node->flash_on = true;
 unlock_mutex:
+#ifndef CONFIG_BOARD_ZTE
+	/* delete lock ZTE_CAM_LIJING_20170310 */
 	mutex_unlock(&flash_node->cdev.led_access);
+#endif
 	mutex_unlock(&led->flash_led_lock);
 
 	return;
@@ -1860,7 +1866,10 @@ error_enable_gpio:
 		flash_regulator_enable(led, flash_node, false);
 
 	flash_node->flash_on = false;
+#ifndef CONFIG_BOARD_ZTE
+	/* delete lock ZTE_CAM_LIJING_20170310 */
 	mutex_unlock(&flash_node->cdev.led_access);
+#endif
 	mutex_unlock(&led->flash_led_lock);
 
 	return;
@@ -1928,7 +1937,11 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 		flash_node->prgm_current = value;
 	}
 
+#ifdef CONFIG_USE_SINGLE_PMIC_FLASH
+	qpnp_flash_led_work(&flash_node->work);
+#else
 	queue_work(led->ordered_workq, &flash_node->work);
+#endif
 
 	return;
 }
