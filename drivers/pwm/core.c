@@ -125,7 +125,9 @@ static int pwm_device_request(struct pwm_device *pwm, const char *label)
 		}
 	}
 
+#ifndef CONFIG_BOARD_ZTE
 	set_bit(PWMF_REQUESTED, &pwm->flags);
+#endif
 	pwm->label = label;
 
 	return 0;
