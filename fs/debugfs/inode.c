@@ -28,7 +28,11 @@
 #include <linux/magic.h>
 #include <linux/slab.h>
 
+#ifdef CONFIG_BOARD_ZTE
+#define DEBUGFS_DEFAULT_MODE	0755
+#else
 #define DEBUGFS_DEFAULT_MODE	0700
+#endif
 
 static struct vfsmount *debugfs_mount;
 static int debugfs_mount_count;

@@ -863,7 +863,13 @@ static int sdcardfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 		goto out;
 	sdcardfs_copy_and_fix_attrs(dentry->d_inode,
 			      lower_path.dentry->d_inode);
+#ifdef CONFIG_BOARD_ZTE
+	fsstack_copy_inode_size(dentry->d_inode, lower_path.dentry->d_inode);
+#endif
 	err = sdcardfs_fillattr(mnt, dentry->d_inode, &lower_stat, stat);
+#ifdef CONFIG_BOARD_ZTE
+	stat->blocks = lower_stat.blocks;
+#endif
 out:
 	sdcardfs_put_lower_path(dentry, &lower_path);
 	return err;

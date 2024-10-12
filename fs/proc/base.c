@@ -989,10 +989,19 @@ static ssize_t oom_score_adj_write(struct file *file, const char __user *buf,
 		goto err_sighand;
 	}
 
+#ifdef CONFIG_BOARD_ZTE
+	if (task->tgid == task->pid) {
+		task->signal->oom_score_adj = (short)oom_score_adj;
+		if (has_capability_noaudit(current, CAP_SYS_RESOURCE))
+			task->signal->oom_score_adj_min = (short)oom_score_adj;
+		trace_oom_score_adj_update(task);
+	}
+#else
 	task->signal->oom_score_adj = (short)oom_score_adj;
 	if (has_capability_noaudit(current, CAP_SYS_RESOURCE))
 		task->signal->oom_score_adj_min = (short)oom_score_adj;
 	trace_oom_score_adj_update(task);
+#endif
 
 err_sighand:
 	unlock_task_sighand(task, &flags);

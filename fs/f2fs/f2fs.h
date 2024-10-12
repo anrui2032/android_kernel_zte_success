@@ -145,7 +145,11 @@ static inline void bio_set_op_attrs(struct bio *bio, unsigned op,
 static inline int wbc_to_write_flags(struct writeback_control *wbc)
 {
 	if (wbc->sync_mode == WB_SYNC_ALL)
+#ifdef CONFIG_BOARD_ZTE
+		return WRITE_SYNC;
+#else
 		return REQ_SYNC;
+#endif
 	return 0;
 }
 
@@ -446,6 +450,12 @@ static inline bool __has_cursum_space(struct f2fs_journal *journal,
 #define F2FS_IOC_GARBAGE_COLLECT_RANGE	_IOW(F2FS_IOCTL_MAGIC, 11,	\
 						struct f2fs_gc_range)
 #define F2FS_IOC_GET_FEATURES		_IOR(F2FS_IOCTL_MAGIC, 12, __u32)
+#ifdef CONFIG_BOARD_ZTE
+/* zte-modify: chenshaohua for google's patch for disable GC for specific file, 20180327 */
+#define F2FS_IOC_SET_PIN_FILE		_IOW(F2FS_IOCTL_MAGIC, 13, __u32)
+#define F2FS_IOC_GET_PIN_FILE		_IOR(F2FS_IOCTL_MAGIC, 14, __u32)
+/* end modify */
+#endif
 
 #define F2FS_IOC_SET_ENCRYPTION_POLICY	FS_IOC_SET_ENCRYPTION_POLICY
 #define F2FS_IOC_GET_ENCRYPTION_POLICY	FS_IOC_GET_ENCRYPTION_POLICY
@@ -657,6 +667,11 @@ enum {
 #define FADVISE_ENCRYPT_BIT	0x04
 #define FADVISE_ENC_NAME_BIT	0x08
 #define FADVISE_KEEP_SIZE_BIT	0x10
+#ifdef CONFIG_BOARD_ZTE
+/* ZTE_MODIFY start, add hint for allocate blocks from reserved segments */
+#define FADVISE_USE_RESERVED_BLOKS 0x20
+/* ZTE_MODIFY end */
+#endif
 
 #define file_is_cold(inode)	is_file(inode, FADVISE_COLD_BIT)
 #define file_wrong_pino(inode)	is_file(inode, FADVISE_LOST_PINO_BIT)
@@ -671,6 +686,13 @@ enum {
 #define file_set_enc_name(inode) set_file(inode, FADVISE_ENC_NAME_BIT)
 #define file_keep_isize(inode)	is_file(inode, FADVISE_KEEP_SIZE_BIT)
 #define file_set_keep_isize(inode) set_file(inode, FADVISE_KEEP_SIZE_BIT)
+#ifdef CONFIG_BOARD_ZTE
+/* ZTE_MODIFY start, add macros related with FADVISE_USE_RESERVED_BLOKS */
+#define file_use_reserved_block(inode)	is_file(inode, FADVISE_USE_RESERVED_BLOKS)
+#define file_set_reserved_block(inode)	set_file(inode, FADVISE_USE_RESERVED_BLOKS)
+#define file_clear_reserved_block(inode)	clear_file(inode, FADVISE_USE_RESERVED_BLOKS)
+/* ZTE_MODIFY end */
+#endif
 
 #define DEF_DIR_LEVEL		0
 
@@ -679,7 +701,16 @@ struct f2fs_inode_info {
 	unsigned long i_flags;		/* keep an inode flags for ioctl */
 	unsigned char i_advise;		/* use to give file attribute hints */
 	unsigned char i_dir_level;	/* use for dentry level for large dir */
+#ifdef CONFIG_BOARD_ZTE
+	/* zte-modify: chenshaohua for google's patch for disable GC for specific file, 20180327 */
+	union {
+		unsigned int i_current_depth;	/* only for directory depth */
+		unsigned short i_gc_failures;	/* only for regular file */
+	};
+    /* end modify */
+#else
 	unsigned int i_current_depth;	/* use only in directory structure */
+#endif
 	unsigned int i_pino;		/* parent inode number */
 	umode_t i_acl_mode;		/* keep file acl mode temporarily */
 
@@ -1221,6 +1252,12 @@ struct f2fs_sb_info {
 
 	/* threshold for converting bg victims for fg */
 	u64 fggc_threshold;
+#ifdef CONFIG_BOARD_ZTE
+	/* zte-modify: chenshaohua for google's patch for disable GC for specific file, 20180327 */
+	/* threshold for gc trials on pinned files */
+	u64 gc_pin_file_threshold;
+	/* end modify */
+#endif
 
 	/* maximum # of trials to find a victim segment for SSR and GC */
 	unsigned int max_victim_search;
@@ -1288,6 +1325,12 @@ struct f2fs_sb_info {
 	char *s_qf_names[F2FS_MAXQUOTAS];
 	int s_jquota_fmt;			/* Format of quota to use */
 #endif
+#ifdef CONFIG_BOARD_ZTE
+	/* ZTE_MODIFY add resuid and resgid support */
+	kuid_t s_resuid;
+	kgid_t s_resgid;
+	/* ZTE_MODIFY end */
+#endif
 };
 
 #ifdef CONFIG_F2FS_FAULT_INJECTION
@@ -1312,6 +1355,17 @@ static inline bool time_to_inject(struct f2fs_sb_info *sbi, int type)
 	}
 	return false;
 }
+#endif
+#ifdef CONFIG_BOARD_ZTE
+/*
+* ZTE_MODIFY start, add function to calculate reserve blocks for root users from reserved segments
+* stored in superblock
+*/
+static inline block_t f2fs_r_blocks_count(struct f2fs_sb_info *sbi)
+{
+	return (block_t)(le32_to_cpu(sbi->raw_super->s_resv_segments) << sbi->log_blocks_per_seg);
+}
+/* ZTE_MODIFY end */
 #endif
 
 /* For write statistics. Suppose sector size is 512 bytes,
@@ -1380,14 +1434,24 @@ static inline u32 f2fs_chksum(struct f2fs_sb_info *sbi, u32 crc,
 	} desc;
 	int err;
 
+#ifdef CONFIG_BOARD_ZTE
+	/* git check warning bug_on -> warn_on */
+	WARN_ON(crypto_shash_descsize(sbi->s_chksum_driver) != sizeof(desc.ctx));
+#else
 	BUG_ON(crypto_shash_descsize(sbi->s_chksum_driver) != sizeof(desc.ctx));
+#endif
 
 	desc.shash.tfm = sbi->s_chksum_driver;
 	desc.shash.flags = 0;
 	*(u32 *)desc.ctx = crc;
 
 	err = crypto_shash_update(&desc.shash, address, length);
+#ifdef CONFIG_BOARD_ZTE
+	/* git check warning bug_on -> warn_on */
+	WARN_ON(err);
+#else
 	BUG_ON(err);
+#endif
 
 	return *(u32 *)desc.ctx;
 }
@@ -1396,6 +1460,24 @@ static inline struct f2fs_inode_info *F2FS_I(struct inode *inode)
 {
 	return container_of(inode, struct f2fs_inode_info, vfs_inode);
 }
+#ifdef CONFIG_BOARD_ZTE
+static inline int is_file(struct inode *inode, int type)
+{
+	return F2FS_I(inode)->i_advise & type;
+}
+
+static inline void set_file(struct inode *inode, int type)
+{
+	F2FS_I(inode)->i_advise |= type;
+	f2fs_mark_inode_dirty_sync(inode, true);
+}
+
+static inline void clear_file(struct inode *inode, int type)
+{
+	F2FS_I(inode)->i_advise &= ~type;
+	f2fs_mark_inode_dirty_sync(inode, true);
+}
+#endif
 
 static inline struct f2fs_sb_info *F2FS_SB(struct super_block *sb)
 {
@@ -1676,6 +1758,49 @@ static inline int inc_valid_block_count(struct f2fs_sb_info *sbi,
 	percpu_counter_add(&sbi->alloc_valid_block_count, (*count));
 
 	spin_lock(&sbi->stat_lock);
+#ifdef CONFIG_BOARD_ZTE
+	/* ZTE_MODIFY start, add reserve segments for specified users support */
+	avail_user_block_count = sbi->user_block_count - sbi->current_reserved_blocks;
+	if (uid_gte(sbi->s_resuid, current_fsuid()) || gid_gte(sbi->s_resgid, current_fsgid()) ||
+		(!gid_eq(sbi->s_resgid, GLOBAL_ROOT_GID) && in_group_p(sbi->s_resgid)) ||
+		capable(CAP_SYS_RESOURCE) || file_use_reserved_block(inode)) {
+		sbi->total_valid_block_count += (block_t)(*count);
+		/* Hm, nope.  Are (enough) root reserved segments available? */
+		if (unlikely(sbi->total_valid_block_count > avail_user_block_count)) {
+			diff = sbi->total_valid_block_count - avail_user_block_count;
+			*count -= diff;
+			release = diff;
+			sbi->total_valid_block_count = avail_user_block_count;
+			if (!*count) {
+				spin_unlock(&sbi->stat_lock);
+				percpu_counter_sub(&sbi->alloc_valid_block_count, diff);
+				goto enospc;
+			}
+		}
+	} else {
+		if (unlikely(sbi->total_valid_block_count > (avail_user_block_count - f2fs_r_blocks_count(sbi)))) {
+			spin_unlock(&sbi->stat_lock);
+			percpu_counter_sub(&sbi->alloc_valid_block_count, (*count));
+			release = *count;
+			*count = 0;
+			goto enospc;
+		}
+
+		sbi->total_valid_block_count += (block_t)(*count);
+		if (unlikely(sbi->total_valid_block_count > (avail_user_block_count - f2fs_r_blocks_count(sbi)))) {
+			diff = sbi->total_valid_block_count - (avail_user_block_count - f2fs_r_blocks_count(sbi));
+			*count -= diff;
+			release = diff;
+			sbi->total_valid_block_count = avail_user_block_count - f2fs_r_blocks_count(sbi);
+			if (!*count) {
+			spin_unlock(&sbi->stat_lock);
+			percpu_counter_sub(&sbi->alloc_valid_block_count, diff);
+			goto enospc;
+			}
+		}
+	}
+	/* ZTE_MODIFY end */
+#else
 	sbi->total_valid_block_count += (block_t)(*count);
 	avail_user_block_count = sbi->user_block_count -
 					sbi->current_reserved_blocks;
@@ -1690,6 +1815,7 @@ static inline int inc_valid_block_count(struct f2fs_sb_info *sbi,
 			goto enospc;
 		}
 	}
+#endif
 	spin_unlock(&sbi->stat_lock);
 
 	if (release)
@@ -1873,11 +1999,31 @@ static inline int inc_valid_node_count(struct f2fs_sb_info *sbi,
 	spin_lock(&sbi->stat_lock);
 
 	valid_block_count = sbi->total_valid_block_count + 1;
+#ifdef CONFIG_BOARD_ZTE
+	/* ZTE_MODIFY start, add reserve segments for specified users support */
+	if (uid_gte(sbi->s_resuid, current_fsuid()) || gid_gte(sbi->s_resgid, current_fsgid()) ||
+		(!gid_eq(sbi->s_resgid, GLOBAL_ROOT_GID) && in_group_p(sbi->s_resgid)) ||
+		capable(CAP_SYS_RESOURCE) || file_use_reserved_block(inode)) {
+		/* Hm, nope.  Are (enough) root reserved segments available? */
+		if (unlikely(valid_block_count + sbi->current_reserved_blocks > sbi->user_block_count)) {
+			spin_unlock(&sbi->stat_lock);
+			goto enospc;
+		}
+	} else {
+		if (unlikely(valid_block_count + sbi->current_reserved_blocks > (sbi->user_block_count
+			- f2fs_r_blocks_count(sbi)))) {
+			spin_unlock(&sbi->stat_lock);
+			goto enospc;
+		}
+	}
+	/* ZTE_MODIFY end */
+#else
 	if (unlikely(valid_block_count + sbi->current_reserved_blocks >
 						sbi->user_block_count)) {
 		spin_unlock(&sbi->stat_lock);
 		goto enospc;
 	}
+#endif
 
 	valid_node_count = sbi->total_valid_node_count + 1;
 	if (unlikely(valid_node_count > sbi->total_node_count)) {
@@ -2202,6 +2348,11 @@ enum {
 	FI_HOT_DATA,		/* indicate file is hot */
 	FI_EXTRA_ATTR,		/* indicate file has extra attribute */
 	FI_PROJ_INHERIT,	/* indicate file inherits projectid */
+#ifdef CONFIG_BOARD_ZTE
+	/* zte-modify: chenshaohua for google's patch for disable GC for specific file, 20180327 */
+	FI_PIN_FILE,		/* indicate file should not be gced */
+	/* end modify */
+#endif
 };
 
 static inline void __mark_inode_dirty_flag(struct inode *inode,
@@ -2215,6 +2366,11 @@ static inline void __mark_inode_dirty_flag(struct inode *inode,
 			return;
 	case FI_DATA_EXIST:
 	case FI_INLINE_DOTS:
+#ifdef CONFIG_BOARD_ZTE
+	/* zte-modify: chenshaohua for google's patch for disable GC for specific file, 20180327 */
+	case FI_PIN_FILE:
+	/* end modify */
+#endif
 		f2fs_mark_inode_dirty_sync(inode, true);
 	}
 }
@@ -2295,6 +2451,16 @@ static inline void f2fs_i_depth_write(struct inode *inode, unsigned int depth)
 	f2fs_mark_inode_dirty_sync(inode, true);
 }
 
+#ifdef CONFIG_BOARD_ZTE
+/* zte-modify: chenshaohua for google's patch for disable GC for specific file, 20180327 */
+static inline void f2fs_i_gc_failures_write(struct inode *inode,
+					unsigned int count)
+{
+	F2FS_I(inode)->i_gc_failures = count;
+	f2fs_mark_inode_dirty_sync(inode, true);
+}
+/* end modify */
+#endif
 static inline void f2fs_i_xnid_write(struct inode *inode, nid_t xnid)
 {
 	F2FS_I(inode)->i_xattr_nid = xnid;
@@ -2323,6 +2489,12 @@ static inline void get_inline_info(struct inode *inode, struct f2fs_inode *ri)
 		set_bit(FI_INLINE_DOTS, &fi->flags);
 	if (ri->i_inline & F2FS_EXTRA_ATTR)
 		set_bit(FI_EXTRA_ATTR, &fi->flags);
+#ifdef CONFIG_BOARD_ZTE
+	/* zte-modify: chenshaohua for google's patch for disable GC for specific file, 20180327 */
+	if (ri->i_inline & F2FS_PIN_FILE)
+		set_bit(FI_PIN_FILE, &fi->flags);
+	/* end modify */
+#endif
 }
 
 static inline void set_raw_inline(struct inode *inode, struct f2fs_inode *ri)
@@ -2341,6 +2513,12 @@ static inline void set_raw_inline(struct inode *inode, struct f2fs_inode *ri)
 		ri->i_inline |= F2FS_INLINE_DOTS;
 	if (is_inode_flag_set(inode, FI_EXTRA_ATTR))
 		ri->i_inline |= F2FS_EXTRA_ATTR;
+#ifdef CONFIG_BOARD_ZTE
+	/* zte-modify: chenshaohua for google's patch for disable GC for specific file, 20180327 */
+	if (is_inode_flag_set(inode, FI_PIN_FILE))
+		ri->i_inline |= F2FS_PIN_FILE;
+	/* end modify */
+#endif
 }
 
 static inline int f2fs_has_extra_attr(struct inode *inode)
@@ -2385,6 +2563,14 @@ static inline int f2fs_has_inline_dots(struct inode *inode)
 {
 	return is_inode_flag_set(inode, FI_INLINE_DOTS);
 }
+#ifdef CONFIG_BOARD_ZTE
+/* zte-modify: chenshaohua for google's patch for disable GC for specific file, 20180327 */
+static inline bool f2fs_is_pinned_file(struct inode *inode)
+{
+	return is_inode_flag_set(inode, FI_PIN_FILE);
+}
+/* end modify */
+#endif
 
 static inline bool f2fs_is_atomic_file(struct inode *inode)
 {
@@ -2430,6 +2616,7 @@ static inline void f2fs_dentry_kunmap(struct inode *dir, struct page *page)
 		kunmap(page);
 }
 
+#ifndef CONFIG_BOARD_ZTE
 static inline int is_file(struct inode *inode, int type)
 {
 	return F2FS_I(inode)->i_advise & type;
@@ -2446,6 +2633,7 @@ static inline void clear_file(struct inode *inode, int type)
 	F2FS_I(inode)->i_advise &= ~type;
 	f2fs_mark_inode_dirty_sync(inode, true);
 }
+#endif
 
 static inline bool f2fs_skip_inode_update(struct inode *inode, int dsync)
 {
@@ -2598,6 +2786,11 @@ int truncate_hole(struct inode *inode, pgoff_t pg_start, pgoff_t pg_end);
 int truncate_data_blocks_range(struct dnode_of_data *dn, int count);
 long f2fs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 long f2fs_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+#ifdef CONFIG_BOARD_ZTE
+/* zte-modify: chenshaohua for google's patch for disable GC for specific file, 20180327 */
+int f2fs_pin_file_control(struct inode *inode, bool inc);
+/* end modify */
+#endif
 
 /*
  * inode.c
@@ -2915,7 +3108,11 @@ struct f2fs_stat_info {
 	unsigned int valid_count, valid_node_count, valid_inode_count, discard_blks;
 	unsigned int bimodal, avg_vblocks;
 	int util_free, util_valid, util_invalid;
+#ifdef CONFIG_BOARD_ZTE
+	int rsvd_segs, overp_segs, root_rsvd_segs;
+#else
 	int rsvd_segs, overp_segs;
+#endif
 	int dirty_count, node_pages, meta_pages;
 	int prefree_count, call_count, cp_count, bg_cp_count;
 	int tot_segs, node_segs, data_segs, free_segs, free_secs;
@@ -3273,4 +3470,18 @@ static inline bool f2fs_may_encrypt(struct inode *inode)
 #endif
 }
 
+#ifdef CONFIG_BOARD_ZTE
+/* ZTE_MODIFY start, adjust gc thread's bg gc frequency according to current value of BDF */
+#ifdef CONFIG_F2FS_STAT_FS
+#define DEF_LOW_F2FS_BDF_THRESHOLD 50
+#define BG_GC_ISSUE_RATE 5
+
+void update_sit_info(struct f2fs_sb_info *sbi);
+static inline bool f2fs_is_bdf_low(struct f2fs_sb_info *sbi)
+{
+	return sbi->stat_info->bimodal <= DEF_LOW_F2FS_BDF_THRESHOLD;
+}
+#endif
+/* ZTE_MODIFY end */
+#endif
 #endif

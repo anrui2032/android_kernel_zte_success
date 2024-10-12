@@ -85,6 +85,9 @@ static void update_general_status(struct f2fs_sb_info *sbi)
 	si->total_count = (int)sbi->user_block_count / sbi->blocks_per_seg;
 	si->rsvd_segs = reserved_segments(sbi);
 	si->overp_segs = overprovision_segments(sbi);
+#ifdef CONFIG_BOARD_ZTE
+	si->root_rsvd_segs = le32_to_cpu(sbi->raw_super->s_resv_segments);
+#endif
 	si->valid_count = valid_user_blocks(sbi);
 	si->discard_blks = discard_blocks(sbi);
 	si->valid_node_count = valid_node_count(sbi);
@@ -137,7 +140,11 @@ static void update_general_status(struct f2fs_sb_info *sbi)
 /*
  * This function calculates BDF of every segments
  */
+ #ifdef CONFIG_BOARD_ZTE
+void update_sit_info(struct f2fs_sb_info *sbi)
+#else
 static void update_sit_info(struct f2fs_sb_info *sbi)
+#endif
 {
 	struct f2fs_stat_info *si = F2FS_STAT(sbi);
 	unsigned long long blks_per_sec, hblks_per_sec, total_vblocks;
@@ -283,8 +290,13 @@ static int stat_show(struct seq_file *s, void *v)
 			   si->sit_area_segs, si->nat_area_segs);
 		seq_printf(s, "[SSA: %d] [MAIN: %d",
 			   si->ssa_area_segs, si->main_area_segs);
+#ifdef CONFIG_BOARD_ZTE
+		seq_printf(s, "(OverProv:%d Resv:%d RootResv:%d)]\n\n",
+			   si->overp_segs, si->rsvd_segs, si->root_rsvd_segs);
+#else
 		seq_printf(s, "(OverProv:%d Resv:%d)]\n\n",
 			   si->overp_segs, si->rsvd_segs);
+#endif
 		if (test_opt(si->sbi, DISCARD))
 			seq_printf(s, "Utilization: %u%% (%u valid blocks, %u discard blocks)\n",
 				si->utilization, si->valid_count, si->discard_blks);

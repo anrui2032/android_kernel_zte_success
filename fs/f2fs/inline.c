@@ -10,7 +10,9 @@
 
 #include <linux/fs.h>
 #include <linux/f2fs_fs.h>
+#ifndef CONFIG_BOARD_ZTE
 #include <trace/events/android_fs.h>
+#endif
 
 #include "f2fs.h"
 #include "node.h"
@@ -86,6 +88,7 @@ int f2fs_read_inline_data(struct inode *inode, struct page *page)
 {
 	struct page *ipage;
 
+#ifndef CONFIG_BOARD_ZTE
 	if (trace_android_fs_dataread_start_enabled()) {
 		char *path, pathbuf[MAX_TRACE_PATHBUF_LEN];
 
@@ -97,11 +100,14 @@ int f2fs_read_inline_data(struct inode *inode, struct page *page)
 						PAGE_SIZE, current->pid,
 						path, current->comm);
 	}
+#endif
 
 	ipage = get_node_page(F2FS_I_SB(inode), inode->i_ino);
 	if (IS_ERR(ipage)) {
+#ifndef CONFIG_BOARD_ZTE
 		trace_android_fs_dataread_end(inode, page_offset(page),
 					      PAGE_SIZE);
+#endif
 		unlock_page(page);
 		return PTR_ERR(ipage);
 	}
@@ -121,7 +127,9 @@ int f2fs_read_inline_data(struct inode *inode, struct page *page)
 
 	f2fs_put_page(ipage, 1);
 
+#ifndef CONFIG_BOARD_ZTE
 	trace_android_fs_dataread_end(inode, page_offset(page), PAGE_SIZE);
+#endif
 	unlock_page(page);
 	return 0;
 }

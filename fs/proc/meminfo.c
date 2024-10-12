@@ -16,6 +16,13 @@
 #include <asm/pgtable.h>
 #include "internal.h"
 
+#ifdef CONFIG_BOARD_ZTE
+/* get lostRam begin */
+extern unsigned long ion_heap_used(void);
+extern unsigned long cma_used(void);
+extern unsigned long kgsl_pool_size_get(void);
+/* get lostRam end */
+#endif
 void __attribute__((weak)) arch_report_meminfo(struct seq_file *m)
 {
 }
@@ -138,6 +145,11 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 		"AnonHugePages:  %8lu kB\n"
 #endif
+#ifdef CONFIG_BOARD_ZTE
+		"Lost_Ion:       %8lu kB\n"
+		"Lost_Cma:       %8lu kB\n"
+		"Lost_KgslPool:  %8lu kB\n"
+#endif
 		,
 		K(i.totalram),
 		K(i.freeram),
@@ -192,6 +204,11 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 		,K(global_page_state(NR_ANON_TRANSPARENT_HUGEPAGES) *
 		   HPAGE_PMD_NR)
+#endif
+#ifdef CONFIG_BOARD_ZTE
+		, ion_heap_used() >> 10
+		, K(cma_used())
+		, K(kgsl_pool_size_get())
 #endif
 		);
 
