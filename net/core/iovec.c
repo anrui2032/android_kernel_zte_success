@@ -88,6 +88,11 @@ int csum_partial_copy_fromiovecend(unsigned char *kdata, struct iovec *iov,
 	__wsum csum = *csump;
 	int partial_cnt = 0, err = 0;
 
+#ifdef CONFIG_BOARD_ZTE
+	/* No data? Done! */
+	if (len == 0)
+		return 0;
+#endif
 	/* Skip over the finished iovecs */
 	while (offset >= iov->iov_len) {
 		offset -= iov->iov_len;

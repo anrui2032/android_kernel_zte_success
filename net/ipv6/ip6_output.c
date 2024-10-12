@@ -143,6 +143,9 @@ int ip6_output(struct sock *sk, struct sk_buff *skb)
 		return 0;
 	}
 
+#ifdef CONFIG_BOARD_ZTE
+	xt_socket_get6_print(skb, 0); /* ZTE_LC_IP_DEBUG, 20170418 improved */
+#endif
 	return NF_HOOK_COND(NFPROTO_IPV6, NF_INET_POST_ROUTING, skb, NULL, dev,
 			    ip6_finish_output,
 			    !(IP6CB(skb)->flags & IP6SKB_REROUTED));
